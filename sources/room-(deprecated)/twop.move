@@ -1,4 +1,4 @@
-module 0x0::twoproom {
+/* module 0x0::twoproom {
     use sui::object::{Self, UID};
     use sui::transfer;
     use sui::tx_context::{Self, TxContext};
@@ -38,3 +38,4 @@ module 0x0::twoproom {
         option::is_some(&room.player2)
     }
 }
+*/

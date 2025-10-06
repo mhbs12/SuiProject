@@ -6,34 +6,42 @@ use sui::balance::{Self, Balance};
 use sui::tx_context::{Self, TxContext};
 use sui::transfer;
 use sui::object::{Self, UID};
+use std::option::{Self, Option};
 
-public struct Treasury has key{
+public struct Control has key{
     id: UID,
+    winner: Option<address>,
     balance: Balance<SUI>,
 }
 
-public entry fun criar_aposta(mut coin: Coin<SUI>, amount: u64, ctx: &mut TxContext) {
+
+entry fun criar_aposta(mut coin: Coin<SUI>, amount: u64, ctx: &mut TxContext) {
+    assert!(amount > 0, EInvalidAmount);
+    assert!(coin.value() >= amount, EInsufficientBalance);
     let stake = coin::split(&mut coin, amount, ctx);
     let value = coin::into_balance(stake);        
-    let t = Treasury { 
-        id: object::new(ctx), 
-        balance: value 
+    let c = Control { 
+        id: object::new(ctx),
+        winner: option::none<address>, 
+        balance: value,
     };
     transfer::public_transfer(coin, tx_context::sender(ctx));
-    transfer::share_object(t);
-}
+    transfer::share_object(c);
+    
 
-public entry fun entrar_aposta(treasury: &mut Treasury, mut coin: Coin<SUI>, amount: u64, ctx: &mut TxContext) {
-    assert!(balance::value(&treasury.balance) <= amount, 1);
+}
+entry fun entrar_aposta(mut coin: Coin<SUI>, amount: u64, control: &mut Control, ctx: &mut TxContext) {
+    assert!(balance::value(&control.balance) <= amount, EInsufficientBalance);
     let stake = coin::split(&mut coin, amount, ctx);
     let value = coin::into_balance(stake);
-    balance::join(&mut treasury.balance, value);
+    balance::join(&mut control.balance, value);
     transfer::public_transfer(coin, tx_context::sender(ctx));
 }
 
-public entry fun finish_game(winner: address, treasury: Treasury, ctx: &mut TxContext) {
-    let Treasury { id, balance: total_balance } = treasury;
+entry fun finish_game(winner: address, treasury: Treasury, ctx: &mut TxContext) {
+    assert!(tx_context::sender(ctx) == winner, 10);
+    let Treasury {id,balance} = treasury;
     object::delete(id);
-    let prize = coin::from_balance(total_balance, ctx);
+    let prize = coin::from_balance(balance, ctx);
     transfer::public_transfer(prize, winner);
 }
