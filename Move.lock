@@ -2,61 +2,20 @@
 
 [move]
 version = 3
-manifest_digest = "543D480888C55F5BC8421B65F839278DA5596CCF35879B0553559FFA954FC796"
-deps_digest = "F9B494B64F0615AED0E98FC12A85B85ECD2BC5185C22D30E7F67786BB52E507C"
+manifest_digest = "7EF01BE0B6E770FC8269A134C28A35054F2F75791CA4A8E084C8226FC2519DC4"
+deps_digest = "F8BBB0CCB2491CA29A3DF03D6F92277A4F3574266507ACD77214D37ECA3F3082"
 dependencies = [
-  { id = "Bridge", name = "Bridge" },
-  { id = "MoveStdlib", name = "MoveStdlib" },
   { id = "Sui", name = "Sui" },
-  { id = "SuiSystem", name = "SuiSystem" },
-]
-
-[[move.package]]
-id = "Bridge"
-source = { git = "https://github.com/MystenLabs/sui.git", rev = "2cde80b5766b0bc2073908e10f6e3c81c93fd691", subdir = "crates/sui-framework/packages/bridge" }
-
-dependencies = [
-  { id = "MoveStdlib", name = "MoveStdlib" },
-  { id = "Sui", name = "Sui" },
-  { id = "SuiSystem", name = "SuiSystem" },
 ]
 
 [[move.package]]
 id = "MoveStdlib"
-source = { git = "https://github.com/MystenLabs/sui.git", rev = "2cde80b5766b0bc2073908e10f6e3c81c93fd691", subdir = "crates/sui-framework/packages/move-stdlib" }
+source = { git = "https://github.com/MystenLabs/sui.git", rev = "framework/mainnet", subdir = "crates\\sui-framework\\packages\\move-stdlib" }
 
 [[move.package]]
 id = "Sui"
-source = { git = "https://github.com/MystenLabs/sui.git", rev = "2cde80b5766b0bc2073908e10f6e3c81c93fd691", subdir = "crates/sui-framework/packages/sui-framework" }
+source = { git = "https://github.com/MystenLabs/sui.git", rev = "framework/mainnet", subdir = "crates/sui-framework/packages/sui-framework" }
 
 dependencies = [
   { id = "MoveStdlib", name = "MoveStdlib" },
 ]
-
-[[move.package]]
-id = "SuiSystem"
-source = { git = "https://github.com/MystenLabs/sui.git", rev = "2cde80b5766b0bc2073908e10f6e3c81c93fd691", subdir = "crates/sui-framework/packages/sui-system" }
-
-dependencies = [
-  { id = "MoveStdlib", name = "MoveStdlib" },
-  { id = "Sui", name = "Sui" },
-]
-
-[move.toolchain-version]
-compiler-version = "1.56.1"
-edition = "2024.beta"
-flavor = "sui"
-
-[env]
-
-[env.devnet]
-chain-id = "ae43edc0"
-original-published-id = "0x43702d5a2a79b9f0251ea29c0e5edb8d42d21fe0cbbabaa1142b45f65d12e6b1"
-latest-published-id = "0x43702d5a2a79b9f0251ea29c0e5edb8d42d21fe0cbbabaa1142b45f65d12e6b1"
-published-version = "1"
-
-[env.testnet]
-chain-id = "4c78adac"
-original-published-id = "0x545001f968d7827e5f8ba202082edd704e0ba3cebc3d57635fb969f9578e2091"
-latest-published-id = "0x545001f968d7827e5f8ba202082edd704e0ba3cebc3d57635fb969f9578e2091"
-published-version = "1"

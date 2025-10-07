@@ -1,8 +1,6 @@
 module 0x0::ttt;
-
-use sui::tx_context::{Self, TxContext};
+use 0x0::main::Control;
 use 0x0::main;
-use 0x0::main::Treasury;
 
 /// An implementation of Tic Tac Toe, using shared objects.
 ///
@@ -90,7 +88,7 @@ public fun new(x: address, o: address, ctx: &mut TxContext) {
 }
 
 /// Called by the next player to add a new mark.
-public fun place_mark(game: &mut Game, row: u8, col: u8, ctx: &mut TxContext) {
+public fun place_mark(game: &mut Game, row: u8, col: u8, control: Control, controlR: &mut Control, ctx: &mut TxContext) {
     assert!(game.ended() == TROPHY_NONE, EAlreadyFinished);
     assert!(row < 3 && col < 3, EInvalidLocation);
 
@@ -107,9 +105,9 @@ public fun place_mark(game: &mut Game, row: u8, col: u8, ctx: &mut TxContext) {
 
     
     let end = game.ended();
-    let treasury = main::get_treasury_id
     if (end == TROPHY_WIN) {
-        main::finish_game(@0x0,&treasury.id,ctx);
+        main::winner(me, controlR);
+        main::finish_game(control, ctx);
         transfer::transfer(game.mint_trophy(end, them, ctx), me);
     } else if (end == TROPHY_DRAW) {
         transfer::transfer(game.mint_trophy(end, them, ctx), me);

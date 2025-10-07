@@ -1,7 +1,5 @@
 module 0x0::og_nft;
-use sui::tx_context::{sender, TxContext};
-use sui::transfer;
-use sui::object::{Self, UID};
+use sui::tx_context::sender;
 use sui::package;
 use sui::display;
 use std::string::{Self, String};
@@ -39,7 +37,7 @@ fun init(witness: OG_NFT, ctx: &mut TxContext) {
     transfer::public_transfer(display, sender(ctx));
 }
 
-public entry fun mint(ctx: &mut TxContext) {
+entry fun mint(ctx: &mut TxContext) {
     let nft = OgNft {
         id: object::new(ctx),
         name: string::utf8(b"OG"),
