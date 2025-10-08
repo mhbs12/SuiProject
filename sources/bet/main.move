@@ -15,7 +15,7 @@ public struct Control has key{
     amount2: u64,
 }
 
-entry fun criar_aposta(mut coin: Coin<SUI>, amount: u64, ctx: &mut TxContext) {
+public fun create_bet(mut coin: Coin<SUI>, amount: u64, ctx: &mut TxContext) {
     assert!(amount > 0, 1);
     assert!(coin.value() >= amount, 2);
     let stake = coin::split(&mut coin, amount, ctx);
@@ -34,7 +34,7 @@ entry fun criar_aposta(mut coin: Coin<SUI>, amount: u64, ctx: &mut TxContext) {
     
 
 }
-entry fun entrar_aposta(mut coin: Coin<SUI>, amount: u64, control: &mut Control, ctx: &mut TxContext) {
+public fun join_bet(mut coin: Coin<SUI>, amount: u64, control: &mut Control, ctx: &mut TxContext) {
     assert!(balance::value(&control.balance) <= amount, 2);
     let stake = coin::split(&mut coin, amount, ctx);
     let value = coin::into_balance(stake);
@@ -48,7 +48,9 @@ public(package) fun winner(winner: address, control: &mut Control){
     control.winner = option::some(winner);
 
 }
-
+public(package) fun sender1(control: &Control): address {
+        control.sender1
+}
 public fun draw(control: &mut Control, ctx: &mut TxContext) {
     assert!(option::is_some(&control.sender2), 5);
     let sender2_addr = option::extract(&mut control.sender2);

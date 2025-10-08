@@ -1,4 +1,6 @@
 module 0x0::ttt;
+use sui::sui::SUI;
+use sui::coin::{Self, Coin};
 use 0x0::main::Control;
 use 0x0::main;
 
@@ -60,14 +62,21 @@ const EAlreadyFinished: vector<u8> = b"Can't place a mark on a finished game.";
 #[error]
 const EInvalidEndState: vector<u8> = b"Game reached an end state that wasn't expected.";
 
-
-public fun new(x: address, o: address, ctx: &mut TxContext) {
+entry fun start_bttt(mut coin: Coin<SUI>, amount: u64, ctx: &mut TxContext){
+    main::create_bet(coin, amount, ctx);
+}
+entry fun join_bttt(mut coin: Coin<SUI>, amount: u64, control: &mut Control, ctx: &mut TxContext){
+    let x = main::sender1(control);
+    new(x, ctx);
+    main::join_bet(coin, amount, control, ctx);
+}
+public fun new(x: address, ctx: &mut TxContext) {
     transfer::share_object(Game {
         id: object::new(ctx),
         board: vector[MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__],
         turn: 0,
         x,
-        o,
+        o: tx_context::sender(ctx),
     });
 }
 
@@ -75,7 +84,6 @@ public fun new(x: address, o: address, ctx: &mut TxContext) {
 public fun place_mark(game: &mut Game, row: u8, col: u8, control: &mut Control, ctx: &mut TxContext) {
     assert!(game.ended() == TROPHY_NONE, EAlreadyFinished);
     assert!(row < 3 && col < 3, EInvalidLocation);
-
   
     let (me, them, sentinel) = game.next_player();
     assert!(me == ctx.sender(), EWrongPlayer);
