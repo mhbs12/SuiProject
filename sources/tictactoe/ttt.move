@@ -1,6 +1,6 @@
 module 0x0::ttt;
 use sui::sui::SUI;
-use sui::coin::{Self, Coin};
+use sui::coin::Coin;
 use 0x0::main::Control;
 use 0x0::main;
 
@@ -62,13 +62,13 @@ const EAlreadyFinished: vector<u8> = b"Can't place a mark on a finished game.";
 #[error]
 const EInvalidEndState: vector<u8> = b"Game reached an end state that wasn't expected.";
 
-entry fun start_bttt(mut coin: Coin<SUI>, amount: u64, ctx: &mut TxContext){
+entry fun start_bttt(coin: Coin<SUI>, amount: u64, ctx: &mut TxContext){
     main::create_bet(coin, amount, ctx);
 }
-entry fun join_bttt(mut coin: Coin<SUI>, amount: u64, control: &mut Control, ctx: &mut TxContext){
+entry fun join_bttt(coin: Coin<SUI>, amount: u64, control: &mut Control, ctx: &mut TxContext){
     let x = main::sender1(control);
-    new(x, ctx);
     main::join_bet(coin, amount, control, ctx);
+    new(x, ctx);
 }
 public fun new(x: address, ctx: &mut TxContext) {
     transfer::share_object(Game {
@@ -138,10 +138,11 @@ fun mint_trophy(game: &Game, status: u8, other: address, ctx: &mut TxContext): T
     }
 }
 
-public fun burn(game: Game) {
+public fun burn(game: Game, control: Control) {
     assert!(game.ended() != TROPHY_NONE, ENotFinished);
     let Game { id, .. } = game;
     id.delete();
+    main::destroy(control);
 }
 
 

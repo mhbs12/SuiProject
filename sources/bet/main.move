@@ -72,3 +72,8 @@ public(package) fun finish_game(control: &mut Control, ctx: &mut TxContext) {
     let prize = coin::take(&mut control.balance, amount, ctx);
     transfer::public_transfer(prize, winner_address);
 }
+public(package) fun destroy(control: Control){
+    let Control {id, balance, ..} = control;
+    balance::destroy_zero(balance);
+    object::delete(id);
+}
