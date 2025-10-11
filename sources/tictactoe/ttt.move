@@ -7,28 +7,18 @@ use 0x0::main;
 
 public struct Game has key {
     id: UID,
-  
     board: vector<u8>,
-
     turn: u8,
-    
     x: address,
-    
     o: address,
-
-    
 }
 
 
 public struct Trophy has key {
     id: UID,
-   
     status: u8,
-    
     board: vector<u8>,
-    
     turn: u8,
-    
     other: address,
 }
 
@@ -79,9 +69,20 @@ public fun new(x: address, ctx: &mut TxContext) {
         o: tx_context::sender(ctx),
     });
 }
+entry fun play(game: Game, gamer: &mut Game, control: Control, controlr: &mut Control, row: u8, col: u8, ctx: &mut TxContext){
+    let x = place_mark(gamer, controlr, row, col ,ctx);
+    if (x == TROPHY_WIN) {
+        burn(game, control);
+    } else if (x == TROPHY_DRAW) {
+        burn(game, control);
+    } else {
+        transfer::share_object(game);
+        main::share_control(control);
+    }
+}
 
 
-public fun place_mark(game: &mut Game, row: u8, col: u8, control: &mut Control, ctx: &mut TxContext) {
+public(package) fun place_mark(game: &mut Game, control: &mut Control, row: u8, col: u8, ctx: &mut TxContext): u8 {
     assert!(game.ended() == TROPHY_NONE, EAlreadyFinished);
     assert!(row < 3 && col < 3, EInvalidLocation);
   
@@ -101,13 +102,16 @@ public fun place_mark(game: &mut Game, row: u8, col: u8, control: &mut Control, 
         main::winner(me, control);
         main::finish_game(control, ctx);
         transfer::transfer(game.mint_trophy(end, them, ctx), me);
+        
     } else if (end == TROPHY_DRAW) {
         main::draw(control, ctx);
         transfer::transfer(game.mint_trophy(end, them, ctx), me);
         transfer::transfer(game.mint_trophy(end, me, ctx), them);
+        
     } else if (end != TROPHY_NONE) {
         abort EInvalidEndState
-    }
+    };
+    end
 }
 
 
@@ -141,7 +145,7 @@ fun mint_trophy(game: &Game, status: u8, other: address, ctx: &mut TxContext): T
 public fun burn(game: Game, control: Control) {
     assert!(game.ended() != TROPHY_NONE, ENotFinished);
     let Game { id, .. } = game;
-    id.delete();
+    object::delete(id);
     main::destroy(control);
 }
 

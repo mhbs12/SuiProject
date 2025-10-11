@@ -77,3 +77,7 @@ public(package) fun destroy(control: Control){
     balance::destroy_zero(balance);
     object::delete(id);
 }
+public(package) fun share_control(control: Control) {
+        transfer::share_object(control);
+}
+
