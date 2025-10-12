@@ -51,7 +51,7 @@ public(package) fun winner(winner: address, control: &mut Control){
 public(package) fun sender1(control: &Control): address {
         control.sender1
 }
-public fun draw(control: &mut Control, ctx: &mut TxContext) {
+public(package) fun draw(control: &mut Control, ctx: &mut TxContext) {
     assert!(option::is_some(&control.sender2), 5);
     let sender2_addr = option::extract(&mut control.sender2);
     let coin2_balance = balance::split(&mut control.balance, control.amount2);

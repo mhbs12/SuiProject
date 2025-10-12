@@ -60,6 +60,36 @@ entry fun join_bttt(coin: Coin<SUI>, amount: u64, control: &mut Control, ctx: &m
     main::join_bet(coin, amount, control, ctx);
     new(x, ctx);
 }
+entry fun place_mark(mut game: Game, mut control: Control, row: u8, col: u8, ctx: &mut TxContext): u8 {
+    assert!(game.ended() == TROPHY_NONE, EAlreadyFinished);
+    assert!(row < 3 && col < 3, EInvalidLocation);
+    let (me, them, sentinel) = game.next_player();
+    assert!(me == ctx.sender(), EWrongPlayer);
+    if (game[row, col] != MARK__) {
+        abort EAlreadyFilled
+    };
+    *(&mut game[row, col]) = sentinel;
+    game.turn = game.turn + 1;
+    let end = game.ended();
+    if (end == TROPHY_WIN) {
+        main::winner(me, &mut control);
+        main::finish_game(&mut control, ctx);
+        transfer::transfer(game.mint_trophy(end, them, ctx), me);
+        burn(game,control);
+    } else if (end == TROPHY_DRAW) {
+        main::draw(&mut control, ctx);
+        transfer::transfer(game.mint_trophy(end, them, ctx), me);
+        transfer::transfer(game.mint_trophy(end, me, ctx), them);
+        burn(game,control);
+    } else if (end == TROPHY_NONE) {
+        transfer::share_object(game);
+        main::share_control(control);
+    } else {
+        abort EInvalidEndState
+    };
+    end
+}
+
 public fun new(x: address, ctx: &mut TxContext) {
     transfer::share_object(Game {
         id: object::new(ctx),
@@ -69,51 +99,6 @@ public fun new(x: address, ctx: &mut TxContext) {
         o: tx_context::sender(ctx),
     });
 }
-entry fun play(game: Game, gamer: &mut Game, control: Control, controlr: &mut Control, row: u8, col: u8, ctx: &mut TxContext){
-    let x = place_mark(gamer, controlr, row, col ,ctx);
-    if (x == TROPHY_WIN) {
-        burn(game, control);
-    } else if (x == TROPHY_DRAW) {
-        burn(game, control);
-    } else {
-        transfer::share_object(game);
-        main::share_control(control);
-    }
-}
-
-
-public(package) fun place_mark(game: &mut Game, control: &mut Control, row: u8, col: u8, ctx: &mut TxContext): u8 {
-    assert!(game.ended() == TROPHY_NONE, EAlreadyFinished);
-    assert!(row < 3 && col < 3, EInvalidLocation);
-  
-    let (me, them, sentinel) = game.next_player();
-    assert!(me == ctx.sender(), EWrongPlayer);
-
-    if (game[row, col] != MARK__) {
-        abort EAlreadyFilled
-    };
-
-    *(&mut game[row, col]) = sentinel;
-    game.turn = game.turn + 1;
-
-    
-    let end = game.ended();
-    if (end == TROPHY_WIN) {
-        main::winner(me, control);
-        main::finish_game(control, ctx);
-        transfer::transfer(game.mint_trophy(end, them, ctx), me);
-        
-    } else if (end == TROPHY_DRAW) {
-        main::draw(control, ctx);
-        transfer::transfer(game.mint_trophy(end, them, ctx), me);
-        transfer::transfer(game.mint_trophy(end, me, ctx), them);
-        
-    } else if (end != TROPHY_NONE) {
-        abort EInvalidEndState
-    };
-    end
-}
-
 
 fun next_player(game: &Game): (address, address, u8) {
     if (game.turn % 2 == 0) {
