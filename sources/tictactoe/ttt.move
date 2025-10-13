@@ -1,18 +1,20 @@
 module 0x0::ttt;
+
 use sui::sui::SUI;
 use sui::coin::Coin;
+use sui::clock::Clock;
 use 0x0::main::Control;
 use 0x0::main;
-
+use sui::clock::timestamp_ms;
 
 public struct Game has key {
     id: UID,
+    last_move_timestamp: u64,
     board: vector<u8>,
     turn: u8,
     x: address,
     o: address,
 }
-
 
 public struct Trophy has key {
     id: UID,
@@ -22,17 +24,25 @@ public struct Trophy has key {
     other: address,
 }
 
-
 const MARK__: u8 = 0;
 const MARK_X: u8 = 1;
 const MARK_O: u8 = 2;
-
 
 const TROPHY_NONE: u8 = 0;
 const TROPHY_DRAW: u8 = 1;
 const TROPHY_WIN: u8 = 2;
 
+const TIMEOUT: u64 = 30_000; //30s (30s only for tests okayy!!)
 
+#[syntax(index)]
+public fun mark(game: &Game, row: u8, col: u8): &u8 {
+    &game.board[(row * 3 + col) as u64]
+}
+
+#[syntax(index)]
+fun mark_mut(game: &mut Game, row: u8, col: u8): &mut u8 {
+    &mut game.board[(row * 3 + col) as u64]
+}
 
 #[error]
 const EInvalidLocation: vector<u8> = b"Move was for a position that doesn't exist on the board.";
@@ -44,23 +54,25 @@ const EWrongPlayer: vector<u8> = b"Game expected a move from another player";
 const EAlreadyFilled: vector<u8> = b"Attempted to place a mark on a filled slot.";
 
 #[error]
-const ENotFinished: vector<u8> = b"Game has not reached an end condition.";
-
-#[error]
 const EAlreadyFinished: vector<u8> = b"Can't place a mark on a finished game.";
 
 #[error]
 const EInvalidEndState: vector<u8> = b"Game reached an end state that wasn't expected.";
 
+#[error]
+const ETimeoutNotReached: vector<u8> = b"The timeout period has not been reached yet.";
+
 entry fun start_bttt(coin: Coin<SUI>, amount: u64, ctx: &mut TxContext){
     main::create_bet(coin, amount, ctx);
 }
-entry fun join_bttt(coin: Coin<SUI>, amount: u64, control: &mut Control, ctx: &mut TxContext){
+
+entry fun join_bttt(coin: Coin<SUI>, amount: u64, control: &mut Control, clock: &Clock, ctx: &mut TxContext){
     let x = main::sender1(control);
     main::join_bet(coin, amount, control, ctx);
-    new(x, ctx);
+    new(x, clock, ctx);
 }
-entry fun place_mark(mut game: Game, mut control: Control, row: u8, col: u8, ctx: &mut TxContext): u8 {
+
+entry fun place_mark(mut game: Game, mut control: Control, row: u8, col: u8, clock: &Clock, ctx: &mut TxContext){
     assert!(game.ended() == TROPHY_NONE, EAlreadyFinished);
     assert!(row < 3 && col < 3, EInvalidLocation);
     let (me, them, sentinel) = game.next_player();
@@ -70,6 +82,7 @@ entry fun place_mark(mut game: Game, mut control: Control, row: u8, col: u8, ctx
     };
     *(&mut game[row, col]) = sentinel;
     game.turn = game.turn + 1;
+    game.last_move_timestamp = timestamp_ms(clock);
     let end = game.ended();
     if (end == TROPHY_WIN) {
         main::winner(me, &mut control);
@@ -87,12 +100,26 @@ entry fun place_mark(mut game: Game, mut control: Control, row: u8, col: u8, ctx
     } else {
         abort EInvalidEndState
     };
-    end
 }
 
-public fun new(x: address, ctx: &mut TxContext) {
+entry fun claim_by_timeout(game: Game, mut control: Control, clock: &Clock, ctx: &mut TxContext) {
+    let current_time = timestamp_ms(clock);
+    let time_since_last_move = current_time - game.last_move_timestamp;
+    assert!(time_since_last_move >= TIMEOUT, ETimeoutNotReached);
+    let (next_player_addr, waiting_player_addr, _) = game.next_player();
+    assert!(tx_context::sender(ctx) == waiting_player_addr, EWrongPlayer);
+    let me = waiting_player_addr;
+    let them = next_player_addr;
+    main::winner(me, &mut control);
+    main::finish_game(&mut control, ctx);
+    transfer::transfer(game.mint_trophy(TROPHY_WIN, them, ctx), me);
+    burn(game, control);
+}
+
+fun new(x: address, clock: &Clock, ctx: &mut TxContext) {
     transfer::share_object(Game {
         id: object::new(ctx),
+        last_move_timestamp: timestamp_ms(clock),
         board: vector[MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__],
         turn: 0,
         x,
@@ -116,7 +143,6 @@ fun test_triple(game: &Game, x: u8, y: u8, z: u8): bool {
     MARK__ != x && x == y && y == z
 }
 
-
 fun mint_trophy(game: &Game, status: u8, other: address, ctx: &mut TxContext): Trophy {
     Trophy {
         id: object::new(ctx),
@@ -127,15 +153,13 @@ fun mint_trophy(game: &Game, status: u8, other: address, ctx: &mut TxContext): T
     }
 }
 
-public fun burn(game: Game, control: Control) {
-    assert!(game.ended() != TROPHY_NONE, ENotFinished);
+fun burn(game: Game, control: Control) {
     let Game { id, .. } = game;
     object::delete(id);
     main::destroy(control);
 }
 
-
-public fun ended(game: &Game): u8 {
+fun ended(game: &Game): u8 {
     if (
         test_triple(game, 0, 1, 2) ||
             test_triple(game, 3, 4, 5) ||
@@ -153,53 +177,6 @@ public fun ended(game: &Game): u8 {
     } else {
         TROPHY_NONE
     }
-}
-
-#[syntax(index)]
-public fun mark(game: &Game, row: u8, col: u8): &u8 {
-    &game.board[(row * 3 + col) as u64]
-}
-
-#[syntax(index)]
-fun mark_mut(game: &mut Game, row: u8, col: u8): &mut u8 {
-    &mut game.board[(row * 3 + col) as u64]
-}
-
-
-#[test_only]
-public use fun game_board as Game.board;
-#[test_only]
-public use fun trophy_status as Trophy.status;
-#[test_only]
-public use fun trophy_board as Trophy.board;
-#[test_only]
-public use fun trophy_turn as Trophy.turn;
-#[test_only]
-public use fun trophy_other as Trophy.other;
-
-#[test_only]
-public fun game_board(game: &Game): vector<u8> {
-    game.board
-}
-
-#[test_only]
-public fun trophy_status(trophy: &Trophy): u8 {
-    trophy.status
-}
-
-#[test_only]
-public fun trophy_board(trophy: &Trophy): vector<u8> {
-    trophy.board
-}
-
-#[test_only]
-public fun trophy_turn(trophy: &Trophy): u8 {
-    trophy.turn
-}
-
-#[test_only]
-public fun trophy_other(trophy: &Trophy): address {
-    trophy.other
 }
 
 
