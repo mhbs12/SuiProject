@@ -102,7 +102,6 @@ public(package) fun register_loss(registry: &mut PlayerRegistry, player: address
 }
 
 public(package) fun get_profile_id(registry: &PlayerRegistry, player: address): ID {
-
     *table::borrow(&registry.profiles, player)
 }
 
