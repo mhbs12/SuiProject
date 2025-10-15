@@ -1,4 +1,4 @@
-module 0x0::ttt_profile;
+module 0x0::profile;
 
 use sui::package;
 use sui::table::{Self, Table};
@@ -6,7 +6,7 @@ use sui::dynamic_field as df;
 use sui::display;
 use std::string;
 
-public struct TTT_PROFILE has drop {}
+public struct PROFILE has drop {}
 
 public struct PlayerRegistry has key {
     id: UID,
@@ -26,7 +26,7 @@ public struct ProfileCard has key, store {
     player_address: address,
 }
 
-fun init(otw: TTT_PROFILE, ctx: &mut TxContext) {
+fun init(otw: PROFILE, ctx: &mut TxContext) {
     let registry = PlayerRegistry {
         id: object::new(ctx),
         profiles: table::new(ctx),

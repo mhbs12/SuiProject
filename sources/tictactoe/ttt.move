@@ -6,8 +6,8 @@ use sui::clock::Clock;
 use 0x0::main::Control;
 use 0x0::main;
 use sui::clock::timestamp_ms;
-use 0x0::ttt_profile;
-use 0x0::ttt_profile::PlayerRegistry;
+use 0x0::profile;
+use 0x0::profile::PlayerRegistry;
 
 public struct Game has key {
     id: UID,
@@ -60,13 +60,13 @@ const ETimeoutNotReached: vector<u8> = b"The timeout period has not been reached
 
 entry fun start_bttt(coin: Coin<SUI>, amount: u64, registry: &mut PlayerRegistry, ctx: &mut TxContext){
     main::create_bet(coin, amount, ctx);
-    ttt_profile::get_or_create_profile(registry, ctx);
+    profile::get_or_create_profile(registry, ctx);
 }
 
 entry fun join_bttt(coin: Coin<SUI>, amount: u64, control: &mut Control, registry: &mut PlayerRegistry, clock: &Clock, ctx: &mut TxContext){
     let x = main::sender1(control);
-    let profile_idx = ttt_profile::get_profile_id(registry, x);
-    let profile_ido = ttt_profile::get_or_create_profile(registry, ctx);
+    let profile_idx = profile::get_profile_id(registry, x);
+    let profile_ido = profile::get_or_create_profile(registry, ctx);
     main::join_bet(coin, amount, control, ctx);
     new(x, clock, profile_idx, profile_ido, ctx);
 }
@@ -85,13 +85,13 @@ entry fun place_mark(mut game: Game, mut control: Control, clock: &Clock, regist
     let end = game.ended();
     if (end == WIN) {
         main::winner(me, &mut control);
-        ttt_profile::register_win(registry, me);
-        ttt_profile::register_loss(registry, them);
+        profile::register_win(registry, me);
+        profile::register_loss(registry, them);
         main::finish_game(&mut control, ctx);
         burn(game,control);
     } else if (end == DRAW) {
         main::draw(&mut control, ctx);
-        ttt_profile::register_draw(registry, me, them);
+        profile::register_draw(registry, me, them);
         burn(game,control);
     } else if (end == NONE) {
         transfer::share_object(game);
@@ -111,8 +111,8 @@ entry fun claim_by_timeout(game: Game, mut control: Control, registry: &mut Play
     let them = next_player_addr;
     main::winner(me, &mut control);
     main::finish_game(&mut control, ctx);
-    ttt_profile::register_win(registry, me);
-    ttt_profile::register_loss(registry, them);
+    profile::register_win(registry, me);
+    profile::register_loss(registry, them);
     burn(game, control);
 }
 
