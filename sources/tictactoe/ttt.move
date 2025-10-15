@@ -6,31 +6,27 @@ use sui::clock::Clock;
 use 0x0::main::Control;
 use 0x0::main;
 use sui::clock::timestamp_ms;
+use 0x0::ttt_profile;
+use 0x0::ttt_profile::PlayerRegistry;
 
 public struct Game has key {
     id: UID,
     last_move_timestamp: u64,
     board: vector<u8>,
     turn: u8,
+    profile_idx: ID,
+    profile_ido: ID,
     x: address,
     o: address,
-}
-
-public struct Trophy has key {
-    id: UID,
-    status: u8,
-    board: vector<u8>,
-    turn: u8,
-    other: address,
 }
 
 const MARK__: u8 = 0;
 const MARK_X: u8 = 1;
 const MARK_O: u8 = 2;
 
-const TROPHY_NONE: u8 = 0;
-const TROPHY_DRAW: u8 = 1;
-const TROPHY_WIN: u8 = 2;
+const NONE: u8 = 0;
+const DRAW: u8 = 1;
+const WIN: u8 = 2;
 
 const TIMEOUT: u64 = 30_000; //30s (30s only for tests okayy!!)
 
@@ -62,18 +58,21 @@ const EInvalidEndState: vector<u8> = b"Game reached an end state that wasn't exp
 #[error]
 const ETimeoutNotReached: vector<u8> = b"The timeout period has not been reached yet.";
 
-entry fun start_bttt(coin: Coin<SUI>, amount: u64, ctx: &mut TxContext){
+entry fun start_bttt(coin: Coin<SUI>, amount: u64, registry: &mut PlayerRegistry, ctx: &mut TxContext){
     main::create_bet(coin, amount, ctx);
+    ttt_profile::get_or_create_profile(registry, ctx);
 }
 
-entry fun join_bttt(coin: Coin<SUI>, amount: u64, control: &mut Control, clock: &Clock, ctx: &mut TxContext){
+entry fun join_bttt(coin: Coin<SUI>, amount: u64, control: &mut Control, registry: &mut PlayerRegistry, clock: &Clock, ctx: &mut TxContext){
     let x = main::sender1(control);
+    let profile_idx = ttt_profile::get_profile_id(registry, x);
+    let profile_ido = ttt_profile::get_or_create_profile(registry, ctx);
     main::join_bet(coin, amount, control, ctx);
-    new(x, clock, ctx);
+    new(x, clock, profile_idx, profile_ido, ctx);
 }
 
-entry fun place_mark(mut game: Game, mut control: Control, row: u8, col: u8, clock: &Clock, ctx: &mut TxContext){
-    assert!(game.ended() == TROPHY_NONE, EAlreadyFinished);
+entry fun place_mark(mut game: Game, mut control: Control, clock: &Clock, registry: &mut PlayerRegistry, row: u8, col: u8, ctx: &mut TxContext){
+    assert!(game.ended() == NONE, EAlreadyFinished);
     assert!(row < 3 && col < 3, EInvalidLocation);
     let (me, them, sentinel) = game.next_player();
     assert!(me == ctx.sender(), EWrongPlayer);
@@ -84,17 +83,17 @@ entry fun place_mark(mut game: Game, mut control: Control, row: u8, col: u8, clo
     game.turn = game.turn + 1;
     game.last_move_timestamp = timestamp_ms(clock);
     let end = game.ended();
-    if (end == TROPHY_WIN) {
+    if (end == WIN) {
         main::winner(me, &mut control);
+        ttt_profile::register_win(registry, me);
+        ttt_profile::register_loss(registry, them);
         main::finish_game(&mut control, ctx);
-        transfer::transfer(game.mint_trophy(end, them, ctx), me);
         burn(game,control);
-    } else if (end == TROPHY_DRAW) {
+    } else if (end == DRAW) {
         main::draw(&mut control, ctx);
-        transfer::transfer(game.mint_trophy(end, them, ctx), me);
-        transfer::transfer(game.mint_trophy(end, me, ctx), them);
+        ttt_profile::register_draw(registry, me, them);
         burn(game,control);
-    } else if (end == TROPHY_NONE) {
+    } else if (end == NONE) {
         transfer::share_object(game);
         main::share_control(control);
     } else {
@@ -102,7 +101,7 @@ entry fun place_mark(mut game: Game, mut control: Control, row: u8, col: u8, clo
     };
 }
 
-entry fun claim_by_timeout(game: Game, mut control: Control, clock: &Clock, ctx: &mut TxContext) {
+entry fun claim_by_timeout(game: Game, mut control: Control, registry: &mut PlayerRegistry, clock: &Clock, ctx: &mut TxContext) {
     let current_time = timestamp_ms(clock);
     let time_since_last_move = current_time - game.last_move_timestamp;
     assert!(time_since_last_move >= TIMEOUT, ETimeoutNotReached);
@@ -112,16 +111,19 @@ entry fun claim_by_timeout(game: Game, mut control: Control, clock: &Clock, ctx:
     let them = next_player_addr;
     main::winner(me, &mut control);
     main::finish_game(&mut control, ctx);
-    transfer::transfer(game.mint_trophy(TROPHY_WIN, them, ctx), me);
+    ttt_profile::register_win(registry, me);
+    ttt_profile::register_loss(registry, them);
     burn(game, control);
 }
 
-fun new(x: address, clock: &Clock, ctx: &mut TxContext) {
+fun new(x: address, clock: &Clock, profile_idx: ID, profile_ido: ID, ctx: &mut TxContext) {
     transfer::share_object(Game {
         id: object::new(ctx),
         last_move_timestamp: timestamp_ms(clock),
         board: vector[MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__],
         turn: 0,
+        profile_idx,
+        profile_ido,
         x,
         o: tx_context::sender(ctx),
     });
@@ -143,16 +145,6 @@ fun test_triple(game: &Game, x: u8, y: u8, z: u8): bool {
     MARK__ != x && x == y && y == z
 }
 
-fun mint_trophy(game: &Game, status: u8, other: address, ctx: &mut TxContext): Trophy {
-    Trophy {
-        id: object::new(ctx),
-        status,
-        board: game.board,
-        turn: game.turn,
-        other,
-    }
-}
-
 fun burn(game: Game, control: Control) {
     let Game { id, .. } = game;
     object::delete(id);
@@ -171,11 +163,11 @@ fun ended(game: &Game): u8 {
             
             test_triple(game, 0, 4, 8) ||
             test_triple(game, 2, 4, 6)) {
-        TROPHY_WIN
+        WIN
     } else if (game.turn == 9) {
-        TROPHY_DRAW
+        DRAW
     } else {
-        TROPHY_NONE
+        NONE
     }
 }
 
