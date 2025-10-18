@@ -14,8 +14,6 @@ public struct Game has key {
     last_move_timestamp: u64,
     board: vector<u8>,
     turn: u8,
-    profile_idx: ID,
-    profile_ido: ID,
     x: address,
     o: address,
 }
@@ -40,6 +38,8 @@ fun mark_mut(game: &mut Game, row: u8, col: u8): &mut u8 {
     &mut game.board[(row * 3 + col) as u64]
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 #[error]
 const EInvalidLocation: vector<u8> = b"Move was for a position that doesn't exist on the board.";
 
@@ -58,6 +58,11 @@ const EInvalidEndState: vector<u8> = b"Game reached an end state that wasn't exp
 #[error]
 const ETimeoutNotReached: vector<u8> = b"The timeout period has not been reached yet.";
 
+#[error]
+const ESameAddress: vector<u8> = b"The address has to be different";
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 entry fun start_bttt(coin: Coin<SUI>, amount: u64, registry: &mut PlayerRegistry, ctx: &mut TxContext){
     main::create_bet(coin, amount, ctx);
     profile::get_or_create_profile(registry, ctx);
@@ -65,13 +70,13 @@ entry fun start_bttt(coin: Coin<SUI>, amount: u64, registry: &mut PlayerRegistry
 
 entry fun join_bttt(coin: Coin<SUI>, amount: u64, control: &mut Control, registry: &mut PlayerRegistry, clock: &Clock, ctx: &mut TxContext){
     let x = main::sender1(control);
-    let profile_idx = profile::get_profile_id(registry, x);
-    let profile_ido = profile::get_or_create_profile(registry, ctx);
+    assert!(tx_context::sender(ctx) != x, ESameAddress);
+    profile::get_or_create_profile(registry, ctx);
     main::join_bet(coin, amount, control, ctx);
-    new(x, clock, profile_idx, profile_ido, ctx);
+    new(x, clock, ctx);
 }
 
-entry fun place_mark(mut game: Game, mut control: Control, clock: &Clock, registry: &mut PlayerRegistry, row: u8, col: u8, ctx: &mut TxContext){
+entry fun place_mark(mut game: Game, mut control: Control, registry: &mut PlayerRegistry, clock: &Clock, row: u8, col: u8, ctx: &mut TxContext){
     assert!(game.ended() == NONE, EAlreadyFinished);
     assert!(row < 3 && col < 3, EInvalidLocation);
     let (me, them, sentinel) = game.next_player();
@@ -116,14 +121,14 @@ entry fun claim_by_timeout(game: Game, mut control: Control, registry: &mut Play
     burn(game, control);
 }
 
-fun new(x: address, clock: &Clock, profile_idx: ID, profile_ido: ID, ctx: &mut TxContext) {
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+fun new(x: address, clock: &Clock, ctx: &mut TxContext) {
     transfer::share_object(Game {
         id: object::new(ctx),
         last_move_timestamp: timestamp_ms(clock),
         board: vector[MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__, MARK__],
         turn: 0,
-        profile_idx,
-        profile_ido,
         x,
         o: tx_context::sender(ctx),
     });

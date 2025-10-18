@@ -48,7 +48,7 @@ fun init(witness: OG_NFT, ctx: &mut TxContext) {
     transfer::public_freeze_object(publisher);
 }
 
-entry fun mint_ttt_og( registry: &mut MintRegistry, ctx: &mut TxContext) {
+entry fun mint_og( registry: &mut MintRegistry, ctx: &mut TxContext) {
     let sender = tx_context::sender(ctx);
     assert!(!table::contains(&registry.registry, sender), EAlreadyHave);
     let og_nft = OgNft {

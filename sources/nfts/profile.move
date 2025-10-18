@@ -3,8 +3,7 @@ module 0x0::profile;
 use sui::package;
 use sui::table::{Self, Table};
 use sui::dynamic_field as df;
-use sui::display;
-use std::string;
+
 
 public struct PROFILE has drop {}
 
@@ -20,12 +19,6 @@ public struct PlayerProfile has key, store {
     ttt_draws: u64,
 }
 
-public struct ProfileCard has key, store {
-    id: UID,
-    profile_id: ID,
-    player_address: address,
-}
-
 fun init(otw: PROFILE, ctx: &mut TxContext) {
     let registry = PlayerRegistry {
         id: object::new(ctx),
@@ -33,27 +26,6 @@ fun init(otw: PROFILE, ctx: &mut TxContext) {
     };
     transfer::share_object(registry);
     let publisher = package::claim(otw, ctx);
-    let mut display = display::new_with_fields<ProfileCard>(
-        &publisher,
-        vector[
-            string::utf8(b"name"),
-            string::utf8(b"description"),
-            string::utf8(b"image_url"), 
-            string::utf8(b"profile_id"),
-            string::utf8(b"player")
-        ],
-        vector[
-            string::utf8(b"Player Card"),
-            string::utf8(b"This card proves your registration. Your stats are stored on-chain, linked to the profile_id attribute."),
-            string::utf8(b"data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxMCI+PHBhdGggZD0iTTY2LjYgMCB2IDIwMCIvPjxwYXRoIGQ9Ik0xMzMuMyAwIHYgMjAwIi8+PHBhdGggZD0iTTAgNjYuNiBoIDIwMCIvPjxwYXRoIGQ9Ik0wIDEzMy4zIGggMjAwIi8+PC9nPjwvc3ZnPg=="), // <- NOVA IMAGEM
-            string::utf8(b"{profile_id}"),
-            string::utf8(b"{player_address}")
-        ],
-        ctx
-    );
-    display::update_version(&mut display);
-    transfer::public_freeze_object(display);
-    
     transfer::public_transfer(publisher, tx_context::sender(ctx));
 }
 
@@ -68,18 +40,10 @@ public(package) fun get_or_create_profile(registry: &mut PlayerRegistry, ctx: &m
             ttt_losses: 0,
             ttt_draws: 0,
         };
-        let profile_id = object::id(&profile);
-        
-        table::add(&mut registry.profiles, player_address, profile_id);
         df::add(&mut registry.id, player_address, profile);
-
-        let card = ProfileCard {
-            id: object::new(ctx),
-            profile_id: profile_id,
-            player_address: player_address,
-        };
-        transfer::public_transfer(card, player_address);
-
+        let profile_ref = df::borrow<address, PlayerProfile>(&registry.id, player_address);
+        let profile_id = object::id(profile_ref);
+        table::add(&mut registry.profiles, player_address, profile_id);
         profile_id
     }
 }
@@ -108,9 +72,11 @@ public(package) fun get_profile_id(registry: &PlayerRegistry, player: address): 
 fun win(profile: &mut PlayerProfile) {
     profile.ttt_wins = profile.ttt_wins + 1;
 }
+
 fun draw(profile: &mut PlayerProfile) {
     profile.ttt_draws = profile.ttt_draws + 1;
 }
+
 fun loss(profile: &mut PlayerProfile) {
     profile.ttt_losses = profile.ttt_losses + 1;
 }
