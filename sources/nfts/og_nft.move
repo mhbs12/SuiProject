@@ -55,7 +55,7 @@ entry fun mint_og( registry: &mut MintRegistry, ctx: &mut TxContext) {
         id: object::new(ctx),
         name: string::utf8(b"OG"),
         description: string::utf8(b"OG confirmed member"),
-        image_url: url::new_unsafe_from_bytes(b"http://aggregator.walrus-testnet.walrus.space/v1/blobs/vTlUE0IKFgQYLhugvLLhYM_jV1vJHVJfuTKDjwgcbDE"),
+        image_url: url::new_unsafe_from_bytes(b"http://aggregator.walrus-mainnet.walrus.space/v1/blobs/vTlUE0IKFgQYLhugvLLhYM_jV1vJHVJfuTKDjwgcbDE"),
     };
     transfer::transfer(og_nft, sender);
     table::add(&mut registry.registry, sender, true);
