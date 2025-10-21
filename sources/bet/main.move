@@ -29,6 +29,9 @@ const EBalanceInconsistencyOnDraw: vector<u8> = b"Balance inconsistency when pro
 #[error]
 const ENoWinnerDeclared: vector<u8> = b"Cannot finish the bet because no winner has been declared.";
 
+#[error]
+const EYouAreNotTheCreator: vector<u8> = b"This is illegal (ㆆ _ ㆆ)";
+
 public(package) fun create_bet(mut coin: Coin<SUI>, amount: u64, ctx: &mut TxContext) {
     assert!(amount > 0, EInvalidAmount);
     assert!(coin.value() >= amount, ENotEnoughBalance);
@@ -96,5 +99,16 @@ public(package) fun destroy(control: Control){
 
 public(package) fun share_control(control: Control) {
         transfer::share_object(control);
+}
+
+entry fun delete_and_claim(control: Control, ctx: &mut TxContext) {
+    let sender = tx_context::sender(ctx);
+    let Control { id, balance, sender1, sender2, .. } = control;
+    assert!(option::is_none(&sender2), EPlayerTwoNotJoined);
+    assert!(sender1 == sender, EYouAreNotTheCreator);
+    assert!(balance::value(&balance) > 0, EInvalidAmount);
+    let coin: Coin<SUI> = coin::from_balance(balance, ctx);
+    transfer::public_transfer(coin, sender);
+    object::delete(id);
 }
 
